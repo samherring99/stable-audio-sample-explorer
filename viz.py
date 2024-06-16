@@ -1,9 +1,9 @@
 from graphviz import Digraph
 
-# visualize_tree: Displays the node tree using graphviz library
+# visualize_graph: Displays the node graph using graphviz library
 # Params: a list of Nodes to visualize
-# Returns: the Digraph object to visualize the node tree
-def visualize_tree(nodes):
+# Returns: the Digraph object to visualize the node graph
+def visualize_graph(nodes):
     dot = Digraph()
     seen_edges = set()
 

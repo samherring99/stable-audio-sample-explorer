@@ -3,11 +3,11 @@ from graphviz import Digraph
 import torch
 
 from audio_node import create_node, remix_node, combine_nodes
-from viz import visualize_tree
+from viz import visualize_graph
 
-# Class definition for the TreeModel that contains all generated AudioNodes and their children
+# Class definition for the GraphModel that contains all generated AudioNodes and their children
 # This class mainly wraps the Stable-Audio-Open model and helper methods with top level params
-class TreeModel:
+class GraphModel:
     def __init__(self):
         print("Initializing model...")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -21,14 +21,14 @@ class TreeModel:
     # create_node: creates an AudioNode
     def create_node(self, prompt):
         print("Generating audio for prompt: " + prompt)
-        node = create_node(prompt, self.model, self.sample_size, self.sample_rate)
+        node = create_node(prompt, self)
         self.nodes.append(node)
         return node
 
     # remix_node: 'remixes' an AudioNode with a given prompt
     def remix_node(self, node, prompt):
         print("Remixing {audio} with ".format(audio=node.prompt) + prompt)
-        node = remix_node(node, self.model, prompt, self.sample_size, self.sample_rate)
+        node = remix_node(node, self, prompt)
         self.nodes.append(node)
         return node
 
@@ -39,8 +39,8 @@ class TreeModel:
         self.nodes.append(node)
         return node
 
-    # visualize: visualize the tree
+    # visualize: visualize the graph
     def visualize(self):
         print("Generating visualization...")
-        dot = visualize_tree(self.nodes)
-        dot.render('tree', format='png', view=True)
+        dot = visualize_graph(self.nodes)
+        dot.render('graph', format='png', view=True)
