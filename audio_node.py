@@ -26,17 +26,17 @@ class AudioNode:
         self.children = []
 
     # generate_audio: called by a Node to generate audio from its prompt. Called in create_node
-    # Params: StableAudio model, a sample size, and a sample rate
+    # Params: GraphModel model for config params
     # Returns: None
-    def generate_audio(self, model, sample_size, sample_rate):
+    def generate_audio(self, model):
         conditioning = [{"prompt": self.prompt, "seconds_start": 0, "seconds_total": 30}]
 
         output = generate_diffusion_cond(
-            model,
+            model.model,
             steps=100,
             cfg_scale=7,
             conditioning=conditioning,
-            sample_size=int(sample_size/2),
+            sample_size=int(model.sample_size/2),
             sigma_min=0.3,
             sigma_max=500,
             sampler_type="dpmpp-3m-sde",
@@ -45,15 +45,14 @@ class AudioNode:
 
         output = rearrange(output, "b d n -> d (b n)")
         self.audio = output
-        self.file_path = save_audio(output, self.prompt, sample_rate)
+        self.file_path = save_audio(output, self.prompt, model.sample_rate)
 
 
     # generate_audio: called by a Node to generate audio from its prompt. Called in remix_node
-    # Params: StableAudio model, a prompt for generation, the torchaudio tensor for init
-    # Also takes in sample size and sample rate
+    # Params: GraphModel model for config params, a prompt for generation, the torchaudio tensor for init
     # Returns: None
-    def generate_remixed_audio(self, model, prompt, init_audio, sample_size, sample_rate):
-        in_sr = sample_rate
+    def generate_remixed_audio(self, model, prompt, init_audio):
+        in_sr = model.sample_rate
         init_audio_pair = (in_sr, init_audio)
 
         conditioning = [{
@@ -63,29 +62,29 @@ class AudioNode:
         }]
 
         output = generate_diffusion_cond(
-            model,
+            model.model,
             steps=200,
             cfg_scale=7,
             conditioning=conditioning,
-            sample_size=int(sample_size/2),
+            sample_size=int(model.sample_size/2),
             sigma_min=0.3,
             sigma_max=500,
             sampler_type="dpmpp-3m-sde",
             init_audio=init_audio_pair,
-            init_noise_level=10.0,
+            init_noise_level=7.0,
             device=device
         )
 
         output = rearrange(output, "b d n -> d (b n)")
         self.audio = output
-        self.file_path = save_audio(output, self.prompt, sample_rate)
+        self.file_path = save_audio(output, self.prompt, model.sample_rate)
 
 # create_node: Creates a node from a given prompt
 # Params: a prompt string to initialize the node and generate 30 audio sample, and the StableAudio model
 # Returns: the initiazlied node
-def create_node(prompt, model, sample_size, sample_rate):
+def create_node(prompt, model):
     node = AudioNode(prompt)
-    node.generate_audio(model, sample_size, sample_rate)
+    node.generate_audio(model)
     return node
 
 # combines_nodes: Combines two existing nodes and adds itself to each of their children
@@ -107,10 +106,10 @@ def combine_nodes(node_1, node_2, sample_size, sample_rate):
 # Params: StableAudio model, a node to remix and a prompt to use for generation, 
 # as well as a sample size and sample rate
 # Returns: a new child node that has been 'remixed' from the parent node's audio
-def remix_node(node, model, prompt, sample_size, sample_rate):
+def remix_node(node, model, prompt):
     remixed_node = AudioNode(node.prompt + "|REMIX|" + prompt)
     child = format_prompt(remixed_node)
-    child.generate_remixed_audio(model, prompt, node.audio, sample_size, sample_rate)
+    child.generate_remixed_audio(model, prompt, node.audio)
     node.children.append(child)
 
     return child
