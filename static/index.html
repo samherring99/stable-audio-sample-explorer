@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stable Audio Sample Explorer</title>
+    <style>
+        body { margin: 0; }
+        #svg-container {
+            width: 85vw;
+            height: 85vh;
+            padding: 20px;
+            box-sizing: border-box;
+            border: 2px solid black;
+            margin: auto;
+            text-align: center;
+        }
+        svg { width: 100%; height: 100%; }
+        .node { cursor: pointer; fill: steelblue; stroke: black; stroke-width: 1.5px; }
+        .label { font-size: 10px; font-family: sans-serif; }
+        .link { stroke: black; }
+        #node-prompt-input {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background-color: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            display: none;
+        }
+        #context-menu {
+            position: fixed;
+            z-index: 1000;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            display: none;
+        }
+        #loading-text {
+            stroke: black;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align:center">Stable Audio Sample Explorer Demo</h1>
+    <p style="text-align:center">Double-click on the SVG area below to create a new node.</p>
+    <div id="svg-container">
+        <svg>
+            <g class="zoomable"> <!-- Added group element -->
+                <defs>
+                    <marker id="arrow" markerWidth="10" markerHeight="10" refX="0" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L9,3 z" fill="#000" />
+                    </marker>
+                </defs>
+            </g>
+        </svg>
+    </div>
+    <div id="node-prompt-input">
+        <input type="text" id="prompt-text" placeholder="Enter node prompt">
+        <button onclick="createNodeFromInput()">Create Node</button>
+    </div>
+    <div id="loading-text">
+        <p style="font-size: 26px">Creating node...</p>
+    </div>
+    <div id="context-menu">
+        <button onclick="playAudio()">Play/Pause</button>
+        <button onclick="remixNode()">Remix</button>
+        <button onclick="deleteNode()">Delete</button>
+    </div>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script>
+        const svg = d3.select("svg");
+
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 10])
+            .on("zoom", redraw);
+
+        const svgGroup = svg.append("g").attr("class", "zoomable");
+
+        svg.call(zoom);
+
+        // Array to store nodes and links
+        let nodes = [];
+        let links = [];
+        let selectedNode = null;
+        let selectedLink = null;
+        let tempLine = null; // Temporary line for dragging
+        let currentAudio = null;
+
+        // Simulation setup
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(200))
+            .force("charge", d3.forceManyBody().strength(-100))
+            .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2))
+            .on("tick", ticked);
+
+        // Function to update node and link positions
+        function ticked() {
+
+            const u = svgGroup.selectAll(".node")
+                .data(nodes, d => d.id);
+
+            const nodeEnter = u.enter()
+                .append("g")
+                .attr("class", "node")
+                .on("click", showContextMenu)
+                .call(drag(simulation));
+
+            nodeEnter.append("circle")
+                .attr("r", 40);
+
+            nodeEnter.append("text")
+                .attr("class", "label")
+                .attr("text-anchor", "middle")
+                .attr("dy", ".35em")
+                .style("font-size", "20px")
+                .style("fill", "#000000")
+                .text(d => d.prompt);
+
+            const nodeUpdate = nodeEnter.merge(u);
+
+            nodeUpdate.attr("transform", d => `translate(${d.x},${d.y})`);
+
+            u.exit().remove();
+
+            const l = svgGroup.selectAll(".link")
+                .data(links, d => `${d.source.id}-${d.target.id}`);
+
+            const linkEnter = l.enter()
+                .append("g")
+                .append("line")
+                .attr("class", "link")
+                .attr("stroke-width", 2);
+                //.attr("stroke", "black");
+
+            const linkUpdate = linkEnter.merge(l);
+
+            linkUpdate
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            l.exit().remove();
+        }
+
+        svg.call(zoom).on("dblclick.zoom", null);
+
+        // Show context menu
+        function showContextMenu(event, d) {
+            selectedNode = d;
+            const contextMenu = document.getElementById("context-menu");
+            contextMenu.style.display = "block";
+            contextMenu.style.left = event.pageX + "px";
+            contextMenu.style.top = event.pageY + "px";
+        }
+
+        // Hide context menu
+        function hideContextMenu() {
+            const contextMenu = document.getElementById("context-menu");
+            contextMenu.style.display = "none";
+            selectedNode = null;
+        }
+
+        // Remix node
+        function remixNode() {
+            if (selectedNode) {
+                showLoadingText(selectedNode.x, selectedNode.y + 100);
+                const prompt = window.prompt("Enter new prompt for the node:", "");
+
+                if (prompt !== null) {
+
+                    fetch('/remix_node', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ node_prompt: selectedNode.prompt, prompt: prompt }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Node remixed:', data.node);
+                        // Handle the remixed node data, e.g., update it in the graph visualization
+                        const remixPrompt = selectedNode.prompt + " + REMIX " + prompt;
+                        const remixNode = createChildNode(remixPrompt, selectedNode.x + 100, selectedNode.y + 100);
+                        const newLink1 = { source: selectedNode, target: remixNode };
+                        const newLink2 = { source: remixNode, target: selectedNode };
+                        hideContextMenu();
+                        hideLoadingText();
+                        links.push(newLink1, newLink2);
+                        simulation.force("link").links(links);
+                        simulation.restart();
+                    })
+                    .catch(error => {
+                        console.error('Error remixing node:', error);
+                    });
+                }
+            }
+        }
+
+        function playAudio() {
+            if (currentAudio == null) {
+                var concatPrompt = selectedNode.prompt.replace(/\s/g, '');
+                currentAudio = new Audio('/tmp/' + concatPrompt + ".wav");
+                currentAudio.play();
+            } else {
+                currentAudio.pause();
+                currentAudio = null;
+                hideContextMenu();
+            }
+        }  
+
+        // Delete node
+        function deleteNode() {
+            if (selectedNode) {
+                nodes = nodes.filter(node => node !== selectedNode);
+                links = links.filter(link => link.source !== selectedNode && link.target !== selectedNode);
+                simulation.nodes(nodes);
+                simulation.force("link").links(links);
+                simulation.alpha(1).restart();
+            }
+            hideContextMenu();
+        }
+
+        // Handle SVG double-click to show input for node prompt
+        svg.on("dblclick", function(event) {
+            if (!event.shiftKey) {
+                const coords = d3.pointer(event);
+                showNodePromptInput(coords[0], coords[1]);
+            }
+        });
+
+        function showLoadingText(x, y) {
+            const inputDiv = document.getElementById("loading-text");
+            inputDiv.style.display = "block";
+            inputDiv.style.left = x + "px";
+            inputDiv.style.top = y + "px";
+
+            console.log("GOOOOO")
+        }
+
+        // Function to hide node prompt input
+        function hideLoadingText() {
+            const inputDiv = document.getElementById("loading-text");
+            inputDiv.style.display = "none";
+        }
+
+        // Show input field for node prompt
+        function showNodePromptInput(x, y) {
+            const inputDiv = document.getElementById("node-prompt-input");
+            inputDiv.style.display = "block";
+            inputDiv.style.left = x + "px";
+            inputDiv.style.top = y + "px";
+            document.getElementById("prompt-text").focus();
+        }
+
+        // Function to create a new node from input
+        function createNodeFromInput() {
+            const prompt = document.getElementById("prompt-text").value;
+            if (prompt.trim() !== "") {
+                const coords = getPromptInputPosition();
+                createNode(prompt, coords.x, coords.y);
+                hideNodePromptInput();
+            } else {
+                alert("Please enter a node prompt.");
+            }
+        }
+
+        // Function to get position of node prompt input
+        function getPromptInputPosition() {
+            const inputDiv = document.getElementById("node-prompt-input");
+            return {
+                x: parseInt(inputDiv.style.left, 10),
+                y: parseInt(inputDiv.style.top, 10)
+            };
+        }
+
+        // Function to hide node prompt input
+        function hideNodePromptInput() {
+            const inputDiv = document.getElementById("node-prompt-input");
+            inputDiv.style.display = "none";
+            document.getElementById("prompt-text").value = "";
+        }
+
+        function combineNodes(node_1, node_2) {
+
+            const newNodePrompt = `${node_1.prompt} + ${node_2.prompt}`;
+            const newNodeX = (node_1.x + node_2.x) / 2;
+            const newNodeY = (node_1.y + node_2.y) / 2;
+            const newNode = createChildNode(newNodePrompt, newNodeX, newNodeY);
+            const newLink1 = { source: node_1, target: newNode };
+            const newLink2 = { source: node_2, target: newNode };
+
+            fetch('/combine_nodes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ node1_prompt: node_1.prompt, node2_prompt: node_2.prompt }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Nodes combined into:', data.node);
+                // Handle the combined node data, e.g., add it to the graph visualization + filepath?
+                links.push(newLink1, newLink2);
+                simulation.force("link").links(links);
+                simulation.alpha(1).restart();
+            })
+            .catch(error => {
+                console.error('Error combining nodes:', error);
+            });
+        }
+
+        function createChildNode(prompt, x, y) {
+            const newNode = { id: nodes.length, x: x, y: y, prompt: prompt };
+            console.log('Node created:', prompt);
+            nodes.push(newNode);
+            simulation.nodes(nodes);
+            simulation.alpha(1).restart();
+            return newNode
+        }
+
+        // Function to create a new node
+        function createNode(prompt, x, y) {
+
+            const newNode = { id: nodes.length, x: x, y: y, prompt: prompt };
+
+            showLoadingText(x, y);
+
+            fetch('/create_node', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt: prompt }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoadingText();
+                console.log('Node created:', data.node);
+                nodes.push(newNode);
+                simulation.nodes(nodes);
+                simulation.alpha(1).restart();
+            })
+            .catch(error => {
+                console.error('Error creating node:', error);
+            });
+
+            return newNode
+        }
+
+        // Drag behavior
+        function drag(simulation) {
+            const minimumDistance = 100; // Minimum distance between nodes
+            let draggedNode = null;
+            let targetNode = null;
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                draggedNode = d;
+                targetNode = null;
+
+                // Create temporary line
+                tempLine = svgGroup.append("g")
+                    .append("line")
+                    .attr("class", "link")
+                    .attr("stroke-width", 2)
+                    .attr("x1", d.x)
+                    .attr("y1", d.y)
+                    .attr("x2", d.x)
+                    .attr("y2", d.y);
+            }
+
+            function dragged(event) {
+                if (draggedNode) {
+                    const potentialTarget = nodes.find(node => {
+                        const distance = Math.sqrt(
+                            Math.pow(node.x - event.x, 2) + Math.pow(node.y - event.y, 2)
+                        );
+                        return distance < 30;
+                    });
+                    targetNode = potentialTarget || null;
+
+                    // Update temporary line
+                    tempLine
+                        .attr("x2", event.x)
+                        .attr("y2", event.y);
+                }
+            }
+
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+
+                // Remove temporary line
+                tempLine.remove();
+                tempLine = null;
+
+                if (draggedNode && targetNode && draggedNode != targetNode) {
+                    combineNodes(draggedNode, targetNode);
+                }
+
+                // Enforce minimum distance between nodes
+                nodes.forEach(node => {
+                    if (node !== draggedNode) {
+                        const distance = Math.sqrt(
+                            Math.pow(node.x - event.x, 2) + Math.pow(node.y - event.y, 2)
+                        );
+                        if (distance < minimumDistance) {
+                            const angle = Math.atan2(node.y - event.y, node.x - event.x);
+                            node.x = event.x + minimumDistance * Math.cos(angle);
+                            node.y = event.y + minimumDistance * Math.sin(angle);
+                        }
+                    }
+                });
+
+                draggedNode = null;
+                targetNode = null;
+            }
+
+            return d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+        }
+
+        function redraw(event) {
+            return svgGroup.attr("transform", event.transform);
+        }
+
+        // Initial rendering
+        simulation.alpha(1).restart();
+
+        // Hide context menu on click outside
+        // window.addEventListener("click", function(event) {
+        //     const contextMenu = document.getElementById("context-menu");
+        //     if (event.target !== contextMenu && !contextMenu.contains(event.target)) {
+        //         hideContextMenu();
+        //     }
+        // });
+    </script>
+</body>
+</html> 

@@ -79,6 +79,17 @@ class AudioNode:
         self.audio = output
         self.file_path = save_audio(output, self.prompt, model.sample_rate)
 
+
+    def to_dict(self):
+        return_dict = {
+            "prompt": self.prompt,
+            "audio": str(self.audio),
+            "file_path": self.file_path,
+            "children": [x.to_dict() for x in self.children]
+        }
+
+        return return_dict
+
 # create_node: Creates a node from a given prompt
 # Params: a prompt string to initialize the node and generate 30 audio sample, and the StableAudio model
 # Returns: the initiazlied node
@@ -91,7 +102,7 @@ def create_node(prompt, model):
 # Params: Two nodes to combine, plus a sample size and sample rate
 # Returns: the child node of the combined nodes with the combined audio
 def combine_nodes(node_1, node_2, sample_size, sample_rate):
-    new_child = AudioNode(node_1.prompt + "|" + node_2.prompt)
+    new_child = AudioNode(node_1.prompt + " + " + node_2.prompt)
     combined_audio = combine_waveforms(node_1.audio, node_2.audio)
     new_child.audio = combined_audio
     child = format_prompt(new_child)
@@ -107,7 +118,7 @@ def combine_nodes(node_1, node_2, sample_size, sample_rate):
 # as well as a sample size and sample rate
 # Returns: a new child node that has been 'remixed' from the parent node's audio
 def remix_node(node, model, prompt):
-    remixed_node = AudioNode(node.prompt + "|REMIX|" + prompt)
+    remixed_node = AudioNode(node.prompt + " + REMIX " + prompt)
     child = format_prompt(remixed_node)
     child.generate_remixed_audio(model, prompt, node.audio)
     node.children.append(child)
