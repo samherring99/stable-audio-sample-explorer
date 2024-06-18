@@ -32,7 +32,7 @@ def format_prompt(node):
 
 # combine_waveforms: combines two torchaudio tensors
 # Params: two torchaudio tensors
-# returns: the torchaudio tensors combined
+# Returns: the torchaudio tensors combined
 def combine_waveforms(wave_1, wave_2):
 
     combined_waveform = wave_1 + wave_2

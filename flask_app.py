@@ -4,15 +4,14 @@ from audio_node import AudioNode
 
 import os
 
+# Simple Flask app for interactive web demo with the sample explorer
+
 app = Flask(__name__, static_folder='static')
 model = GraphModel()
 
-def node_exists(prompt):
-    for node in model.nodes:
-        if node.prompt == prompt:
-            return True
-    return False
-
+# get_node_with_prompt: helper method that returns the node with the given prompt if it exists
+# Params: prompt (string)
+# Returns: node with the given prompt or an empty AudioNode
 def get_node_with_prompt(prompt):
     return_node = AudioNode()
 
@@ -22,10 +21,12 @@ def get_node_with_prompt(prompt):
 
     return return_node
 
+# Top level index method for flask app
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
 
+# Creates a node given a prompt as input
 @app.route('/create_node', methods=['POST'])
 def create_node():
     prompt = request.json['prompt']
@@ -33,6 +34,7 @@ def create_node():
     node = model.create_node(prompt)
     return jsonify(node=node.to_dict())
 
+# Combines two nodes with provided prompts if they exist
 @app.route('/combine_nodes', methods=['POST'])
 def combine_nodes():
     node1_prompt = request.json['node1_prompt']
@@ -47,6 +49,7 @@ def combine_nodes():
         print("Cant find one or both nodes!")
         return {}
 
+# Remixes a given node with a prompt
 @app.route('/remix_node', methods=['POST'])
 def remix_node():
     node_prompt = request.json['node_prompt']
@@ -71,7 +74,6 @@ def serve_audio(filename):
         return send_file(audio_path, mimetype='audio/wav')
     else:
         return 'Audio file not found', 404
-
 
 if __name__ == '__main__':
     app.run(debug=False)
