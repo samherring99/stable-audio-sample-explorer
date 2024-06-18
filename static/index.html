@@ -48,7 +48,11 @@
 </head>
 <body>
     <h1 style="text-align:center">Stable Audio Sample Explorer Demo</h1>
-    <p style="text-align:center">Double-click on the SVG area below to create a new node.</p>
+    <p style="text-align:center">Use this tool to explore generated stable-audio-open samples! Double-click on the interactive SVG canvas below to create a new node.</p>
+    <div style="text-align: center; margin-bottom: 10px;">
+        <p>Click on a node to play or remix it. Drag between nodes to combine them.</p>
+        <button id="reset-button">Reset Nodes</button>
+    </div>
     <div id="svg-container">
         <svg>
             <g class="zoomable"> <!-- Added group element -->
@@ -170,7 +174,7 @@
         // Remix node
         function remixNode() {
             if (selectedNode) {
-                showLoadingText(selectedNode.x + 100, selectedNode.y + 100);
+                showLoadingText(selectedNode.x + 100, selectedNode.y - 200);
                 const prompt = window.prompt("Enter new prompt for the node:", "");
 
                 if (prompt !== null) {
@@ -296,13 +300,37 @@
             document.getElementById("prompt-text").value = "";
         }
 
+        document.getElementById('reset-button').onclick = resetPage;
+
+        function resetPage() {
+            // Clear nodes and links arrays
+            nodes = [];
+            links = [];
+
+            // Restart the simulation with empty arrays
+            simulation.nodes(nodes);
+            simulation.force("link").links(links);
+            simulation.alpha(1).restart();
+
+            // Remove all nodes and links from the SVG
+            svgGroup.selectAll('.node').remove();
+            svgGroup.selectAll('.link').remove();
+
+            // Reset zoom level and position
+            svg.transition().duration(750).call(
+                zoom.transform,
+                d3.zoomIdentity
+            );
+        }
+
         function combineNodes(node_1, node_2) {
 
             if (!(node_1.prompt.includes(node_2.prompt)) && !(node_2.prompt.includes(node_1.prompt))) {
                 const newNodePrompt = `${node_1.prompt} + ${node_2.prompt}`;
                 const newNodeX = (node_1.x + node_2.x) / 2;
                 const newNodeY = (node_1.y + node_2.y) / 2;
-                const newNode = createChildNode(newNodePrompt, newNodeX, newNodeY, 'steelblue', node_1.color, node_2.color);
+                const cleanedPrompt = [...new Set(newNodePrompt.split(" + "))].join(' + ');
+                const newNode = createChildNode(cleanedPrompt, newNodeX, newNodeY, 'steelblue', node_1.color, node_2.color);
                 const newLink1 = { source: node_1, target: newNode };
                 const newLink2 = { source: node_2, target: newNode };
 
