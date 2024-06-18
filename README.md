@@ -4,6 +4,16 @@
 
 The Sample Explorer is a tool used to explore and iterate on generations with [stable-audio-open](https://huggingface.co/stabilityai/stable-audio-open-1.0). It is a work-in-progress project that serves as both a visualzation tool and iterative sample generation. The bulk of the code used to generate audio is abstracted behind `graph_model.py`, which by default generates 30sec of audio with `cfg_scale` of 7 and using 100-200 steps. These parameters (and others) are tunable in `audio_node.py`, but expect some changes at some point to move to a config file approach for more user control.
 
+The sample explorer is set up in a *graph* with *nodes* and *edges*:
+
+- *nodes* represent an audio sample. There are 3 types:
+    - *base nodes* are generated samples from a prompt with no parent nodes
+    - *remix nodes* are a child node of a *base node* that has been remixed using inpainting with another prompt
+    - *combined nodes* are child nodes combining the waveforms of two parent nodes
+- *edges* represent connections between children and parent nodes
+
+This project aims to explore graph-based sample creation using this interface.
+
 ## Usage
 
 ### Setting up the environment:
