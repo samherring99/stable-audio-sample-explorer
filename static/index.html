@@ -112,7 +112,8 @@
                 .call(drag(simulation));
 
             nodeEnter.append("circle")
-                .attr("r", 40);
+                .attr("r", 40)
+                .attr("fill", d => d.color);
 
             nodeEnter.append("text")
                 .attr("class", "label")
@@ -170,7 +171,7 @@
         // Remix node
         function remixNode() {
             if (selectedNode) {
-                showLoadingText(selectedNode.x, selectedNode.y + 100);
+                showLoadingText(selectedNode.x + 100, selectedNode.y + 100);
                 const prompt = window.prompt("Enter new prompt for the node:", "");
 
                 if (prompt !== null) {
@@ -187,7 +188,7 @@
                         console.log('Node remixed:', data.node);
                         // Handle the remixed node data, e.g., update it in the graph visualization
                         const remixPrompt = selectedNode.prompt + " + REMIX " + prompt;
-                        const remixNode = createChildNode(remixPrompt, selectedNode.x + 100, selectedNode.y + 100);
+                        const remixNode = createChildNode(remixPrompt, selectedNode.x + 100, selectedNode.y + 100, 'green', 'green', 'green');
                         const newLink1 = { source: selectedNode, target: remixNode };
                         const newLink2 = { source: remixNode, target: selectedNode };
                         hideContextMenu();
@@ -240,14 +241,23 @@
             inputDiv.style.display = "block";
             inputDiv.style.left = x + "px";
             inputDiv.style.top = y + "px";
-
-            console.log("GOOOOO")
         }
 
         // Function to hide node prompt input
         function hideLoadingText() {
             const inputDiv = document.getElementById("loading-text");
             inputDiv.style.display = "none";
+        }
+
+        function blendColors(color1, color2) {
+            const hsl1 = d3.hsl(color1);
+            const hsl2 = d3.hsl(color2);
+
+            const blendedH = (hsl1.h + hsl2.h) / 2;
+            const blendedS = (hsl1.s + hsl2.s) / 2;
+            const blendedL = (hsl1.l + hsl2.l) / 2;
+
+            return d3.hsl(blendedH, blendedS, blendedL);
         }
 
         // Show input field for node prompt
@@ -289,35 +299,47 @@
 
         function combineNodes(node_1, node_2) {
 
-            const newNodePrompt = `${node_1.prompt} + ${node_2.prompt}`;
-            const newNodeX = (node_1.x + node_2.x) / 2;
-            const newNodeY = (node_1.y + node_2.y) / 2;
-            const newNode = createChildNode(newNodePrompt, newNodeX, newNodeY);
-            const newLink1 = { source: node_1, target: newNode };
-            const newLink2 = { source: node_2, target: newNode };
+            if (!(node_1.prompt.includes(node_2.prompt)) && !(node_2.prompt.includes(node_1.prompt))) {
+                const newNodePrompt = `${node_1.prompt} + ${node_2.prompt}`;
+                const newNodeX = (node_1.x + node_2.x) / 2;
+                const newNodeY = (node_1.y + node_2.y) / 2;
+                const newNode = createChildNode(newNodePrompt, newNodeX, newNodeY, 'steelblue', node_1.color, node_2.color);
+                const newLink1 = { source: node_1, target: newNode };
+                const newLink2 = { source: node_2, target: newNode };
 
-            fetch('/combine_nodes', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ node1_prompt: node_1.prompt, node2_prompt: node_2.prompt }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Nodes combined into:', data.node);
-                // Handle the combined node data, e.g., add it to the graph visualization + filepath?
-                links.push(newLink1, newLink2);
-                simulation.force("link").links(links);
-                simulation.alpha(1).restart();
-            })
-            .catch(error => {
-                console.error('Error combining nodes:', error);
-            });
+                fetch('/combine_nodes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ node1_prompt: node_1.prompt, node2_prompt: node_2.prompt }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Nodes combined into:', data.node);
+                    // Handle the combined node data, e.g., add it to the graph visualization + filepath?
+                    links.push(newLink1, newLink2);
+                    simulation.force("link").links(links);
+                    simulation.alpha(1).restart();
+                })
+                .catch(error => {
+                    console.error('Error combining nodes:', error);
+                });
+
+            }
         }
 
-        function createChildNode(prompt, x, y) {
-            const newNode = { id: nodes.length, x: x, y: y, prompt: prompt };
+        function createChildNode(prompt, x, y, parent1Color, parent2Color, baseColor = 'steelblue') {
+            let color;
+            if (baseColor === 'green') {
+                color = `hsl(120, 100%, 50%)`;
+            } else if (parent1Color && parent2Color) {
+                const blendedColor = blendColors(parent1Color, parent2Color);
+                color = d3.hsl(blendedColor.h, blendedColor.s, Math.max(0, blendedColor.l - 0.1));
+            } else {
+                color = 'steelblue';
+            }
+            const newNode = { id: nodes.length, x: x, y: y, prompt: prompt, color: color };
             console.log('Node created:', prompt);
             nodes.push(newNode);
             simulation.nodes(nodes);
@@ -328,7 +350,7 @@
         // Function to create a new node
         function createNode(prompt, x, y) {
 
-            const newNode = { id: nodes.length, x: x, y: y, prompt: prompt };
+            const newNode = { id: nodes.length, x: x, y: y, prompt: prompt, color: 'steelblue' };
 
             showLoadingText(x, y);
 
