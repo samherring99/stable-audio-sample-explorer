@@ -5,13 +5,10 @@ from audio_node import AudioNode
 import os
 
 # Simple Flask app for interactive web demo with the sample explorer
-
 app = Flask(__name__, static_folder='static')
 model = GraphModel()
 
-# get_node_with_prompt: helper method that returns the node with the given prompt if it exists
-# Params: prompt (string)
-# Returns: node with the given prompt or an empty AudioNode
+# Helper method that returns the node with the given prompt if it exists
 def get_node_with_prompt(prompt):
     return_node = AudioNode()
 
@@ -66,6 +63,7 @@ def remix_node():
         print("Can't find node!")
         return {}
 
+# Serves an audio file given a filename
 @app.route('/tmp/<path:filename>', methods=['GET'])
 def serve_audio(filename):
     audio_dir = os.path.join(app.root_path, 'tmp')

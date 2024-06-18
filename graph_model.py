@@ -6,7 +6,7 @@ from audio_node import create_node, remix_node, combine_nodes
 from viz import visualize_graph
 
 # Class definition for the GraphModel that contains all generated AudioNodes and their children
-# This class mainly wraps the Stable-Audio-Open model and helper methods with top level params
+# This class mainly wraps the stable-audio-open model and helper methods with top level params
 class GraphModel:
     def __init__(self):
         print("Initializing model...")
