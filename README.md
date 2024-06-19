@@ -1,5 +1,7 @@
 # Stable Audio Sample Explorer
 
+![alt text](https://github.com/samherring99/stable-audio-sample-explorer/blob/main/resources/demo_image.png?raw=true)
+
 ## Overview
 
 The Sample Explorer is a tool used to explore and iterate on generations with [stable-audio-open](https://huggingface.co/stabilityai/stable-audio-open-1.0). It is a work-in-progress project that serves as both a visualzation tool and iterative sample generation. The bulk of the code used to generate audio is abstracted behind `graph_model.py`, which by default generates 30sec of audio with `cfg_scale` of 7 and using 100-200 steps. These parameters (and others) are tunable in `audio_node.py`, but expect some changes at some point to move to a config file approach for more user control.

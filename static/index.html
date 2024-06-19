@@ -19,6 +19,12 @@
         .node { cursor: pointer; fill: steelblue; stroke: black; stroke-width: 1.5px; }
         .label { font-size: 10px; font-family: sans-serif; }
         .link { stroke: black; }
+        .text-block {
+            width: 5%;
+            word-break: break-all; /* Breaks long words at any character to fit the container */
+            display: none;
+        }
+        svg g:hover label { display: block; }
         #node-prompt-input {
             position: fixed;
             top: 20px;
@@ -103,6 +109,32 @@
             .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2))
             .on("tick", ticked);
 
+        function splitText(text) {
+            let newText = text + '';
+            const list = newText.split(" + ");
+            //const splitLength = Math.ceil(text.length / list.length);
+            let result = '';
+
+            for (let i = 0; i < list.length; i++) {
+                result += list[i]
+                if (i < list.length - 1) {
+                    result += '<br>';
+                }
+            }
+
+            return result;
+        }
+
+        function getCursor(event) {
+            let x = event.clientX;
+            let y = event.clientY;
+
+            const loadingText = document.getElementById("loading-text");
+            loadingText.style.display = "block";
+            loadingText.style.left = event.pageX + "px";
+            loadingText.style.top = event.pageY + "px";
+        }
+
         // Function to update node and link positions
         function ticked() {
 
@@ -121,8 +153,10 @@
 
             nodeEnter.append("text")
                 .attr("class", "label")
-                .attr("text-anchor", "middle")
+                //.attr("text-anchor", "middle")
+                .attr("width", "50px")
                 .attr("dy", ".35em")
+                .attr("dx", "2.5em")
                 .style("font-size", "20px")
                 .style("fill", "#000000")
                 .text(d => d.prompt);
@@ -192,7 +226,14 @@
                     .then(data => {
                         console.log('Node remixed:', data.node);
                         // Handle the remixed node data
-                        const remixPrompt = selectedNode.prompt + " + REMIX " + prompt;
+                        var remixPrompt = selectedNode.prompt;
+
+                        if (!selectedNode.prompt.includes("REMIX")) {
+                            remixPrompt = remixPrompt + " + " + prompt + " REMIX ";
+                        } else {
+                            remixPrompt = remixPrompt + " + " + prompt;
+                        }
+
                         const remixNode = createChildNode(remixPrompt, selectedNode.x + 100, selectedNode.y + 100, 'green', 'green', 'green');
                         const newLink1 = { source: selectedNode, target: remixNode };
                         const newLink2 = { source: remixNode, target: selectedNode };
@@ -242,6 +283,12 @@
                 const coords = d3.pointer(event);
                 showNodePromptInput(coords[0], coords[1]);
             }
+        });
+
+        svg.on("mousemove", function(event) {
+            const loadingText = document.getElementById("loading-text");
+            loadingText.style.left = event.pageX + "px";
+            loadingText.style.top = event.pageY + "px";
         });
 
         // Function to display loading text during audio generation
