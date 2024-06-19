@@ -14,6 +14,18 @@ The sample explorer is set up in a *graph* with *nodes* and *edges*:
     - *combined nodes* are child nodes combining the waveforms of two parent nodes
 - *edges* represent connections between children and parent nodes
 
+## Combining and Remixing
+
+![alt text](https://github.com/samherring99/stable-audio-sample-explorer/blob/main/resources/combiningandremixing.png?raw=true)
+
+**Combining** two nodes combines their waveforms and normalizes them. No generation is needed for this step.
+
+**Remixing** a node uses the Stable Audio's inpainting feature with a given prompt and generates using the node's audio tensor as initialization audio. This feature needs more tuning and is experimental currently.
+
+![alt text](https://github.com/samherring99/stable-audio-sample-explorer/blob/main/resources/newgraphs.png?raw=true)
+
+You can also create multiple complex graphs within the same canvas.
+
 This project aims to explore graph-based sample creation using this interface.
 
 ## Usage
