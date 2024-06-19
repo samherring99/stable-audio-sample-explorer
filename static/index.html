@@ -104,7 +104,7 @@
         // Simulation setup
         const simulation = d3.forceSimulation(nodes)
             .force("link", d3.forceLink(links).id(d => d.id).distance(200))
-            .force("charge", d3.forceManyBody().strength(-100))
+            .force("charge", d3.forceManyBody().strength(-50))
             .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2))
             .on("tick", ticked);
 

@@ -118,7 +118,12 @@ def combine_nodes(node_1, node_2, sample_size, sample_rate):
 # as well as a sample size and sample rate
 # Returns: a new child node that has been 'remixed' from the parent node's audio
 def remix_node(node, model, prompt):
-    remixed_node = AudioNode(node.prompt + " + REMIX " + prompt)
+    remix_prompt = node.prompt
+    if "REMIX" not in remix_prompt:
+        remix_prompt = remix_prompt + " + " + prompt + " REMIX"
+    else:
+        remix_prompt = remix_prompt + " + " + prompt
+    remixed_node = AudioNode(remix_prompt)
     child = format_prompt(remixed_node)
     child.generate_remixed_audio(model, prompt, node.audio)
     node.children.append(child)
